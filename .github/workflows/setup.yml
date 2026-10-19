@@ -1,0 +1,55 @@
+name: First-time setup (run once by hand)
+
+on:
+  workflow_dispatch:
+    inputs:
+      seed_csv:
+        description: "Also load data/seed/*.csv (only if you put the CSVs in the repo instead of importing them in the app)"
+        type: boolean
+        default: false
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      PREDICTED_API_URL: ${{ secrets.PREDICTED_API_URL }}
+      PREDICTED_WORKER_TOKEN: ${{ secrets.PREDICTED_WORKER_TOKEN }}
+      PREDICTED_ANON_KEY: ${{ secrets.PREDICTED_ANON_KEY }}
+      ENABLE_LSTM: ${{ vars.ENABLE_LSTM || '1' }}
+      ENABLE_CHRONOS: ${{ vars.ENABLE_CHRONOS || '1' }}
+      ENABLE_KRONOS: ${{ vars.ENABLE_KRONOS || '1' }}
+      PREDICTED_MODEL_DIR: models
+      HF_HUB_DISABLE_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Python packages
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+      - name: Get Kronos code (pinned commit)
+        if: env.ENABLE_KRONOS != '0'
+        run: |
+          git init -q Kronos
+          git -C Kronos fetch -q --depth 1 https://github.com/shiyu-coder/Kronos 67b630e67f6a18c9e9be918d9b4337c960db1e9a
+          git -C Kronos checkout -q FETCH_HEAD
+      - name: Check the connection to Predicted
+        run: python -m predicted status
+      - name: Load seed CSV files
+        if: inputs.seed_csv
+        run: python -m predicted seed "data/seed/*.csv"
+      - name: Pull index history (Nifty 50, Nifty Bank, India VIX) and fill gaps
+        run: python -m predicted backfill --history
+      - name: Backtest and train
+        run: python -m predicted train --skip-backfill
+      - name: Save trained models
+        uses: actions/cache/save@v4
+        with:
+          path: models
+          key: models-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Show what the database holds
+        run: python -m predicted status

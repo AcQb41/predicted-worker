@@ -1,0 +1,11 @@
+# Add to supabase/config.toml: these three functions do their own authentication
+# (ingest-live: none needed, it only writes market data and is throttled;
+#  worker-api: WORKER_TOKEN header; import-candles: ADMIN_PASSCODE header).
+[functions.ingest-live]
+verify_jwt = false
+
+[functions.worker-api]
+verify_jwt = false
+
+[functions.import-candles]
+verify_jwt = false

@@ -1,0 +1,55 @@
+name: Predict (every 5 min, market hours)
+
+on:
+  schedule:
+    # Times are UTC. IST = UTC + 5:30. NSE candles close at :00/:05 UTC past the half hour.
+    - cron: "52,57 3 * * 1-5"      # 09:22, 09:27 IST
+    - cron: "2-57/5 4-9 * * 1-5"   # 09:32 ... 15:27 IST, every 5 minutes
+  workflow_dispatch:
+
+concurrency:
+  group: predict
+  cancel-in-progress: false
+
+jobs:
+  predict:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PREDICTED_API_URL: ${{ secrets.PREDICTED_API_URL }}
+      PREDICTED_WORKER_TOKEN: ${{ secrets.PREDICTED_WORKER_TOKEN }}
+      PREDICTED_ANON_KEY: ${{ secrets.PREDICTED_ANON_KEY }}
+      ENABLE_LSTM: ${{ vars.ENABLE_LSTM || '1' }}
+      ENABLE_CHRONOS: ${{ vars.ENABLE_CHRONOS || '1' }}
+      ENABLE_KRONOS: ${{ vars.ENABLE_KRONOS || '1' }}
+      PREDICTED_MODEL_DIR: models
+      HF_HUB_DISABLE_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Python packages
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+      - name: Get Kronos code (pinned commit)
+        if: env.ENABLE_KRONOS != '0'
+        run: |
+          git init -q Kronos
+          git -C Kronos fetch -q --depth 1 https://github.com/shiyu-coder/Kronos 67b630e67f6a18c9e9be918d9b4337c960db1e9a
+          git -C Kronos checkout -q FETCH_HEAD
+      - name: Restore trained models (from the nightly run)
+        uses: actions/cache/restore@v4
+        with:
+          path: models
+          key: models-none
+          restore-keys: models-
+      - name: Cache Hugging Face downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-chronos2-kronos-v1
+      - name: Predict
+        run: python -m predicted predict

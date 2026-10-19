@@ -1,0 +1,52 @@
+name: Nightly retrain
+
+on:
+  schedule:
+    - cron: "40 10 * * 1-5"   # 16:10 IST, after the market closes
+  workflow_dispatch:
+
+concurrency:
+  group: train
+  cancel-in-progress: false
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      PREDICTED_API_URL: ${{ secrets.PREDICTED_API_URL }}
+      PREDICTED_WORKER_TOKEN: ${{ secrets.PREDICTED_WORKER_TOKEN }}
+      PREDICTED_ANON_KEY: ${{ secrets.PREDICTED_ANON_KEY }}
+      ENABLE_LSTM: ${{ vars.ENABLE_LSTM || '1' }}
+      ENABLE_CHRONOS: ${{ vars.ENABLE_CHRONOS || '1' }}
+      ENABLE_KRONOS: ${{ vars.ENABLE_KRONOS || '1' }}
+      PREDICTED_MODEL_DIR: models
+      HF_HUB_DISABLE_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Python packages
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+      - name: Get Kronos code (pinned commit)
+        if: env.ENABLE_KRONOS != '0'
+        run: |
+          git init -q Kronos
+          git -C Kronos fetch -q --depth 1 https://github.com/shiyu-coder/Kronos 67b630e67f6a18c9e9be918d9b4337c960db1e9a
+          git -C Kronos checkout -q FETCH_HEAD
+      - name: Cache Hugging Face downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-chronos2-kronos-v1
+      - name: Backfill, backtest and train
+        run: python -m predicted train
+      - name: Save trained models for the 5-minute runs
+        uses: actions/cache/save@v4
+        with:
+          path: models
+          key: models-${{ github.run_id }}-${{ github.run_attempt }}
