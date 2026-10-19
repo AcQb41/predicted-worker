@@ -1,0 +1,15 @@
+# PyTorch (CPU build) is installed separately in the workflows:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+numpy>=1.26
+pandas>=2.2
+scipy>=1.11
+scikit-learn>=1.4
+lightgbm>=4.3
+requests>=2.31
+yfinance>=0.2.54
+chronos-forecasting>=2.0
+# Kronos (cloned from GitHub at a pinned commit) needs these:
+einops>=0.8
+tqdm>=4.66
+safetensors>=0.4
+huggingface_hub>=0.33
