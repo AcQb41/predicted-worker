@@ -1,0 +1,66 @@
+name: Tomorrow's open (evening estimate + pre-open update)
+
+on:
+  schedule:
+    # Times are UTC. IST = UTC + 5:30.
+    - cron: "20 10 * * 1-5"    # 15:50 IST: retrain on daily history, evening estimate for the next session
+    - cron: "5,25 3 * * 1-5"   # 08:35 and 08:55 IST: pre-open update with the US session and Asian opens
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: "auto (by time of day), evening or morning"
+        default: auto
+        type: choice
+        options: [auto, evening, morning]
+
+concurrency:
+  group: open
+  cancel-in-progress: false
+
+jobs:
+  open:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      PREDICTED_API_URL: ${{ secrets.PREDICTED_API_URL }}
+      PREDICTED_WORKER_TOKEN: ${{ secrets.PREDICTED_WORKER_TOKEN }}
+      PREDICTED_ANON_KEY: ${{ secrets.PREDICTED_ANON_KEY }}
+      ENABLE_CHRONOS: ${{ vars.ENABLE_CHRONOS || '1' }}
+      ENABLE_KRONOS: ${{ vars.ENABLE_KRONOS || '1' }}
+      PREDICTED_OPEN_MODEL_DIR: models_open
+      HF_HUB_DISABLE_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Python packages
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+      - name: Get Kronos code (pinned commit)
+        if: env.ENABLE_KRONOS != '0'
+        run: |
+          git init -q Kronos
+          git -C Kronos fetch -q --depth 1 https://github.com/shiyu-coder/Kronos 67b630e67f6a18c9e9be918d9b4337c960db1e9a
+          git -C Kronos checkout -q FETCH_HEAD
+      - name: Restore the opening-price models (from the last evening run)
+        uses: actions/cache/restore@v4
+        with:
+          path: models_open
+          key: open-models-none
+          restore-keys: open-models-
+      - name: Cache Hugging Face downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-chronos2-kronos-v1
+      - name: Forecast tomorrow's open
+        run: python -m predicted open --stage ${{ inputs.stage || 'auto' }}
+      - name: Save the opening-price models
+        if: hashFiles('models_open/meta.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: models_open
+          key: open-models-${{ github.run_id }}-${{ github.run_attempt }}
