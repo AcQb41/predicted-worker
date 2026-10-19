@@ -58,6 +58,8 @@ Deno.test("worker-api validation", () => {
     base_price: 216.4, pred_return: -0.0004, pred_price: 216.3, pred_direction: "down", prob_up: 0.43 };
   assertEquals(api.validatePrediction(p), null);
   assertEquals(api.validatePrediction({ ...p, model_key: "gpt" }), "bad model_key");
+  assertEquals(api.validatePrediction({ ...p, model_key: "linear", horizon: "open" }), null);
+  assertEquals(api.validatePrediction({ ...p, horizon: "1d" }), "bad horizon");
   assertEquals(api.validatePrediction({ ...p, prob_up: 1.2 }), "bad prob_up");
   assertEquals(api.validatePrediction({ ...p, target_ts: p.made_at }), "target before made_at");
   assert(api.safeEqual("abc123", "abc123"));

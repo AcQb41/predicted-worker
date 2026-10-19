@@ -34,5 +34,17 @@ n = s.upsert_candles(load_seed_csv(os.path.join(os.environ.get("SEED_DIR","data/
 assert n == 0, f"fill mode re-inserted {n} rows"
 print("re-seed inserted 0 rows: OK")
 PY
+# tomorrow's-open rows: horizon 'open' and model 'linear' must be accepted
+python3 - <<'PY'
+from predicted.store import ApiStore
+s = ApiStore()
+vid = s.create_model_version({"model_key": "linear", "version": "t open", "params": {"scope": "open"}, "backtest": {"open": {}}})
+n = s.upsert_predictions([{"symbol": "JIOFIN", "model_key": "linear", "horizon": "open",
+    "made_at": "2026-10-19T15:30:00+05:30", "target_ts": "2026-10-20T09:15:00+05:30", "base_price": 213.0,
+    "pred_return": 0.004, "pred_price": 213.85, "pred_direction": "up", "prob_up": 0.56,
+    "band_low": 210.0, "band_high": 216.0, "model_version_id": vid}])
+assert n == 1
+print("open horizon + linear model accepted: OK")
+PY
 grep -i error "$TMP/server.log" && exit 1 || true
 echo "CONTRACT TEST OK"
