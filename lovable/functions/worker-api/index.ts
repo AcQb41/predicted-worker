@@ -9,7 +9,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-worker-token",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const MODEL_KEYS = ["naive", "lightgbm", "lstm", "ensemble", "chronos2", "kronos"];
+const MODEL_KEYS = ["naive", "lightgbm", "lstm", "ensemble", "chronos2", "kronos", "linear"];
 const SYMBOL_RE = /^[A-Z0-9]{2,20}$/;
 
 /** Constant-time string comparison. */
@@ -36,7 +36,7 @@ export function validateCandle(r: any): string | null {
 export function validatePrediction(r: any): string | null {
   if (!r || !SYMBOL_RE.test(r.symbol)) return "bad symbol";
   if (!MODEL_KEYS.includes(r.model_key)) return "bad model_key";
-  if (!["30m", "eod"].includes(r.horizon)) return "bad horizon";
+  if (!["30m", "eod", "open"].includes(r.horizon)) return "bad horizon";
   if (!isoOk(r.made_at) || !isoOk(r.target_ts)) return "bad timestamps";
   if (Date.parse(r.target_ts) <= Date.parse(r.made_at)) return "target before made_at";
   if (![r.base_price, r.pred_return, r.pred_price].every(num)) return "bad numbers";
