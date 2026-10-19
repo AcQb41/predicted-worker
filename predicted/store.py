@@ -204,14 +204,25 @@ class LocalStore:
             if p.get("status") != "open":
                 continue
             made, target = pd.Timestamp(p["made_at"]), pd.Timestamp(p["target_ts"])
-            if now < target + timedelta(minutes=6):
-                continue
-            m = c[(c.symbol == p["symbol"]) & (c.ts <= target) & (c.ts > made) & (c.ts >= target - timedelta(minutes=10))]
-            if m.empty:
-                if now > target + timedelta(days=1):
-                    p["status"] = "expired"
-                continue
-            close = float(m.sort_values("ts").close.iloc[-1])
+            if p.get("horizon") == "open":
+                # the OPEN of the first 09:15 candle at or after the target (skips holidays)
+                ist = c.ts.dt.tz_convert(config.IST)
+                m = c[(c.symbol == p["symbol"]) & (c.ts >= target) & (c.ts < target + timedelta(days=6))
+                      & (ist.dt.hour == 9) & (ist.dt.minute == 15) & (c.ts <= now - timedelta(minutes=6))]
+                if m.empty:
+                    if now > target + timedelta(days=6):
+                        p["status"] = "expired"
+                    continue
+                close = float(m.sort_values("ts").open.iloc[0])
+            else:
+                if now < target + timedelta(minutes=6):
+                    continue
+                m = c[(c.symbol == p["symbol"]) & (c.ts <= target) & (c.ts > made) & (c.ts >= target - timedelta(minutes=10))]
+                if m.empty:
+                    if now > target + timedelta(days=1):
+                        p["status"] = "expired"
+                    continue
+                close = float(m.sort_values("ts").close.iloc[-1])
             p.update(actual_price=close, actual_return=math.log(close / p["base_price"]),
                      abs_error=abs(p["pred_price"] - close),
                      direction_correct=None if close == p["base_price"] else ((p["pred_direction"] == "up") == (close > p["base_price"])),

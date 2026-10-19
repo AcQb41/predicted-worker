@@ -4,6 +4,8 @@
   backfill [--days N]      fill gaps from Yahoo (default 5 days; 59 max)
   train                    nightly: backfill, walk-forward backtest, train, publish versions
   predict                  every 5 minutes: predict from the latest candle, resolve old predictions
+  open [--stage S]         tomorrow's opening price: evening estimate (after the close, also
+                           retrains) or pre-open update (before 09:14 IST); S = auto|evening|morning
   status                   print what the database holds
 """
 from __future__ import annotations
@@ -29,6 +31,9 @@ def main():
     t.add_argument("--skip-backfill", action="store_true")
     pr = sub.add_parser("predict")
     pr.add_argument("--no-refresh", action="store_true", help="don't pull today's candles from Yahoo first")
+    op = sub.add_parser("open")
+    op.add_argument("--stage", choices=["auto", "evening", "morning"], default="auto")
+    op.add_argument("--no-train", action="store_true", help="evening: reuse saved models instead of retraining")
     sub.add_parser("status")
     a = p.parse_args()
 
@@ -41,6 +46,9 @@ def main():
         out = jobs.train(store, skip_backfill=a.skip_backfill)
     elif a.cmd == "predict":
         out = jobs.predict(store, refresh_today=not a.no_refresh)
+    elif a.cmd == "open":
+        from . import opening
+        out = opening.predict(store, stage=a.stage, retrain=not a.no_train)
     else:
         out = store.status()
     print(json.dumps(out, indent=1, default=str))
