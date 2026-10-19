@@ -150,10 +150,13 @@ def score(bt: pd.DataFrame) -> dict:
         for h in TARGET_COL:
             rc, y = f"{m}__ret_{h}", TARGET_COL[h]
             if rc in bt and m != "naive":
-                ics = bt.dropna(subset=[rc, y]).groupby("fold").apply(
-                    lambda g: stats.spearmanr(g[rc], g[y]).correlation if len(g) > 30 and g[rc].nunique() > 1 else np.nan,
-                    include_groups=False)
-                fold_ic[h] = {str(k): (None if pd.isna(v) else round(float(v), 4)) for k, v in ics.items()}
+                d = bt.dropna(subset=[rc, y])
+                ics = {}
+                for k, g in d.groupby("fold"):
+                    ok = len(g) > 30 and g[rc].nunique() > 1
+                    v = stats.spearmanr(g[rc], g[y]).correlation if ok else np.nan
+                    ics[str(k)] = None if pd.isna(v) else round(float(v), 4)
+                fold_ic[h] = ics
         result[m]["fold_ic"] = fold_ic
     return result
 
