@@ -18,6 +18,7 @@ STOCKS: dict[str, str] = {
     "JIOFIN": "JIOFIN.NS",
     "SUZLON": "SUZLON.NS",
     "JSWENERGY": "JSWENERGY.NS",
+    "OPTIEMUS": "OPTIEMUS.NS"
 }
 INDICES: dict[str, str] = {
     "NIFTY50": "^NSEI",
